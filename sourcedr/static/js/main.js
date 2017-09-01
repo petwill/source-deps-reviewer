@@ -3,6 +3,33 @@
 
   var ccounter = 0;
   var counter = 0;
+  var current_item = null;
+
+  // make item list sortable
+  $( function() {
+    $("#item_list").sortable();
+    $("#item_list").disableSelection();
+  });
+  
+  function moveToTop(index) {
+    if (index == 0) {
+        return;
+    }
+    let target = $('#item_list').children().eq(index);
+    let tp = $('#item_list').children().eq(0);
+    let old_offset = target.position();
+    tp.before(target);
+    let new_offset = target.position();
+    let tmp = target.clone().appendTo('#item_list')
+                    .css('position', 'absolute')
+                    .css('left', old_offset.left)
+                    .css('top', old_offset.top);
+    target.hide();
+    tmp.animate({'top': new_offset.top, 'left': new_offset.left}, 'slow', function() {
+      target.show();
+      tmp.remove();
+    });
+  }
 
   function getSelText() {
     let txt = window.getSelection();
@@ -34,6 +61,33 @@
     pretag.appendChild(atag);
     pretag.onclick = setItem;
     return pretag;
+  }
+
+  function grepResultHtml(items) {
+    let ret = document.createElement('p');
+    for (let i = 0; i < items.length; i++) {
+      let path = document.createElement('span');
+      path.style.color = 'purple';
+      path.style.fontSize = '20px';
+      path.innerHTML = items[i][0];
+      ret.appendChild(path);
+      ret.appendChild(document.createElement('br'));
+      for (let j = 0; j < items[0][1].length; j++) {
+        let line_no = items[i][1][j][0];
+        let content = items[i][1][j][1];
+        let line_html = document.createElement('font');
+        line_html.style.color = 'green';
+        line_html.style.fontSize = '18px';
+        line_html.innerHTML = line_no + ':';
+        ret.appendChild(line_html);
+        let content_html = document.createElement('span');
+        content_html.style.fontSize = '18px';
+        content_html.appendChild(document.createTextNode(content));
+        ret.appendChild(content_html);
+        ret.appendChild(document.createElement('br'));
+      }
+    }
+    return ret;
   }
 
   function enterTask() {
@@ -90,6 +144,7 @@
     $.getJSON('/get_started', {
     }, function (data) {
       $('#item_list').empty();
+      $('#pattern_list').empty();
 
       const lst = JSON.parse(data.lst);
       const done = JSON.parse(data.done);
@@ -102,12 +157,14 @@
       for (let i = 0; i < len; i++) {
         $('#pattern_list').append('<li>' + pattern_lst[i] + '</li>');
       }
+      $('#path_prefix').text(data.path_prefix);
     });
   }
 
   function saveAll() {
     let path = $('#file_path').text();
     let line_no = $('#line_no').text();
+
     let deps = new Array();
     for (let i = 0; i < counter; i++) {
       if ($('#dep' + i).length) {
@@ -124,13 +181,33 @@
     if (path == '' || line_no == '') {
       return false;
     }
+    if (deps.length > 0) {
+        current_item.className = 'list-group-item list-group-item-success';
+    } else {
+        current_item.className = 'list-group-item list-group-item-danger';
+    }
     $.getJSON('/save_all', {
-      path: path + ':' + line_no,
+      label: $(current_item).text(),
       deps: JSON.stringify(deps),
       codes: JSON.stringify(codes)
-    }, function (data) {
-      onLoad();
     });
+    let target = $(current_item).text().split(':')[2];
+    let children = $('#item_list')[0].children;
+    let len = children.length;
+    for (let i = 0; i < len; i++) {
+        let tt = children[i].getElementsByTagName('a')[0].innerHTML;
+        if (tt == $(current_item).text()) {
+            continue;
+        }
+        if (children[i].getElementsByTagName('a')[0].className == 
+            'list-group-item list-group-item-success' ) {
+            continue;
+        }
+        let content = tt.split(':')[2];
+        if (content == target) {
+            moveToTop(i);
+        }
+    }
     return false;
   }
 
@@ -170,6 +247,7 @@
   function setItem(evt) {
     removeAnchor();
     let item = evt.target;
+    current_item = item;
     let name = $(item).text().split(':');
     let file = name[0];
     let line_no = name[1];
@@ -190,6 +268,8 @@
     setGotoPatternLine(line_no);
     $('#selected_text').val('');
     $('#code_file_path').val('');
+    $('#enter_deps').val('');
+    $('html,body').scrollTop(0);
     return false;
   }
 
@@ -200,7 +280,8 @@
     $inputs.each(function () {
       values[this.name] = $(this).val();
     });
-    let path = $('input[name="browsing_path"]').val();
+    let path = $('#path_prefix').text() +
+               $('input[name="browsing_path"]').val();
     setBrowsingFile(path);
     unsetHighlightLine();
     return false;
@@ -214,12 +295,32 @@
     });
     $.getJSON('/add_pattern', {
       pattern: values['pattern'],
-      is_regex: $('#add_pattern').children().eq(1).is(':checked')
-    }, function (data) {
-      //
+      is_regex: $('#is_regex').is(':checked') ? 1 : 0
     });
     return true;
   });
+
+  $('#temporary_search').submit(function() {
+    const $inputs = $('#temporary_search :input');
+    let values = {};
+    $inputs.each(function () {
+      values[this.name] = $(this).val();
+    });
+    $('#modal_title').text(values['pattern']);
+    $.getJSON('/temporary_search', {
+      path: $('#file_path').text(),
+      pattern: values['pattern'],
+      is_regex: $('#is_regex2').is(':checked') ? 1 : 0
+    }, function (data) {
+        $('#modal_body').append(grepResultHtml(JSON.parse(data.result)));
+        $('#myModal').modal('show');
+    });
+    return false;
+  });
+  // clear previous html code in modal on hide
+  $('#myModal').on('hidden.bs.modal', function () {
+    $('#modal_body').empty();
+  })
 
   $('#add_deps').submit(enterTask);
   $('#add_code').submit(enterCode);
