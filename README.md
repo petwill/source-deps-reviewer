@@ -8,6 +8,9 @@ Basically, it greps the specified directory for the given pattern,
 and let human reviewers label their dependencies, even code dependencies,
 which are code segments that are highly related to the specific pattern.
 
+This tool is merged into aosp(Android Open Source Project).
+
+[https://android.googlesource.com/platform/development/+/master/vndk/tools/source-deps-reviewer/](https://android.googlesource.com/platform/development/+/master/vndk/tools/source-deps-reviewer/)
 ## Installation and Dependencies
 
 This tool depends on [codesearch](https://github.com/google/codesearch)
