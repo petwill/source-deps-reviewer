@@ -14,11 +14,11 @@ This tool is merged into aosp(Android Open Source Project).
 ## Installation and Dependencies
 
 This tool depends on [codesearch](https://github.com/google/codesearch)
-to generate regular expression index, please install them with:
+to generate regular expression index, please install them.
 
+on Ubuntu, you can install them with:
 ```
-$ go get github.com/google/codesearch/cmd/cindex
-$ go get github.com/google/codesearch/cmd/csearch
+$ sudo apt install codesearch
 ```
 
 This tool depends on several Python packages,
